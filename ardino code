@@ -1,0 +1,106 @@
+#include <LiquidCrystal.h>
+#define COUNTER_MAX 50
+#define RS 12             // RS - Register Select
+#define EN 11             // EN - Enable
+#define D0 5              // D0 - Data Pin 0
+#define D1 4              // D1 - Data Pin 1
+#define D2 3              // D2 - Data Pin 2
+#define D3 2              // D3 - Data Pin 3
+
+
+int Blue = 6;             // LM393 Sound Sensor (Colour - Blue)
+int RedAnalog = A0;       // KY-037 Sound Sensor (Colour - Red)
+int Purple = A2;          // MAX9814 Sound Sensor (Colour - Purple)
+int RedDigital = 7;       //
+int soundLED = 10;        // Blue lED is connected to the digital pin 10 on the arduino
+int noiseLED = 8;         // White LED is connected to the digital pin 8 on the arduino
+
+
+int redVolume = 0;
+int purpleVolume = 0;
+int counter = 0;
+
+
+LiquidCrystal lcd(RS, EN, D0, D1, D2, D3);
+
+
+// Density of air (ρ) = 1.1614 kg/m^3
+// Speed of sound in air (vw) = 343 m/s
+// 2*ρ*vw = 2 * 1.1614 * 343 = 796.7204
+
+
+void setup()
+{
+  pinMode (Blue, INPUT);
+  pinMode (soundLED, OUTPUT);
+  pinMode (noiseLED, OUTPUT);
+
+
+  lcd.begin(16, 2);
+  lcd.print("Volume: (dB)");
+  Serial.begin(9600);
+}
+
+
+void loop()
+{
+  lcd.setCursor(0, 1);
+  int sensorStatus = digitalRead(Blue);  
+  int redStatus =  digitalRead(RedDigital);
+
+
+  if (sensorStatus == 1 || redStatus == 1) {
+    counter = 0;
+    digitalWrite(soundLED, HIGH);
+    redVolume = analogRead(RedAnalog);
+    purpleVolume = analogRead(Purple);
+  }
+  else {
+    digitalWrite(soundLED, LOW);
+  }
+
+
+  if (counter < COUNTER_MAX) {
+    redVolume = analogRead(RedAnalog);
+    purpleVolume = analogRead(Purple);
+  }
+
+
+  if (sensorStatus == 1 || redStatus == 1) {
+    if (redVolume > 580) {
+      digitalWrite(noiseLED, HIGH);
+    }
+    if (purpleVolume > 545) {
+      digitalWrite(noiseLED, HIGH);
+    }
+  }
+  else {
+    digitalWrite(noiseLED, LOW);
+  }
+
+
+  double pSq = (double)purpleVolume/4;
+  double purple_dB = square(pSq/1000);
+  purple_dB = purple_dB / 796.7204;                   // (p)^2/2*ρ*vw
+  purple_dB = 10 * log10(purple_dB * pow(10, 12));
+
+
+  double rSq = (double)redVolume/4;
+  double red_dB = square(rSq/1000);
+  red_dB = red_dB / 796.7204;                         // (p)^2/2*ρ*vw
+  red_dB = 10 * log10(red_dB * pow(10, 12));
+
+
+  if(counter < COUNTER_MAX) {
+    lcd.print(red_dB, 3);
+  }
+
+
+  Serial.println(red_dB, 3);
+ 
+  delay(10);
+  lcd.print("                ");
+
+
+  counter++;
+}
